@@ -92,10 +92,6 @@ if [ ! -z $port ]; then
   glance_upload=$( echo "$glance_upload --port $port" )
 fi
 
-
-echo $glance_upload
-exit 1
-
 if [ -z $distro ] || [ -z $version ]; then
   echo "You must provide the OS version and Distro with -d and -v!"
   usage

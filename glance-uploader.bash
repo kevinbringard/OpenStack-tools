@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 
 glance_upload=$( which glance-upload )
+##
+# Use this to force a glance-upload location if it's not in your path (or to override the above if you're so inclined)
+# Normally this should be commented out and should only be used if you're really sure you know what you're doing
+# glance_upload="/usr/bin/glance-upload"
+
 glance=$( which glance )
+##
+# Use this to force a glance location (just like the above for glance-upload), same caveats apply
+# glance="/usr/bin/glance"
+
 username=$( whoami )
 host=$( hostname )
 
-args=$( getopt :i:k:r:v:d:e:a:h $*)
+args=$( getopt :i:k:r:v:d:e:a:h:p: $*)
 
 usage() {
   echo "USAGE: $0 [options]
   -i  Path to the image to upload
   -k  Path to the kernel to upload
   -r  Path to the ramdisk to upload
+
+Host is required if you are connecting to a remote glance server, port will default to 9292
+  -h  Host to connect to
+  -p  Port to connect to
 
 The options below here are required for meta-data, so be descriptive
   -v  The version of the OS you are uploading
@@ -66,9 +79,22 @@ for i; do
     -d) shift; distro=$1; shift;;
     -e) shift; kernel_version=$1; shift;;
     -a) shift; arch=$1; shift;;
-    -h) shift; usage;;
+    -h) shift; host=$1; shift;;
+    -p) shift; port=$1; shift;;
   esac
 done
+
+if [ ! -z $host ]; then
+  glance_upload=$( echo "$glance_upload --host $host" )
+fi
+
+if [ ! -z $port ]; then
+  glance_upload=$( echo "$glance_upload --port $port" )
+fi
+
+
+echo $glance_upload
+exit 1
 
 if [ -z $distro ] || [ -z $version ]; then
   echo "You must provide the OS version and Distro with -d and -v!"

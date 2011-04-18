@@ -86,10 +86,12 @@ done
 
 if [ ! -z $host ]; then
   glance_upload=$( echo "$glance_upload --host $host" )
+  glance=$( echo "$glance -H $host" )
 fi
 
 if [ ! -z $port ]; then
   glance_upload=$( echo "$glance_upload --port $port" )
+  glance=$( echo "$glance -p $port" )
 fi
 
 if [ -z $distro ] || [ -z $version ]; then

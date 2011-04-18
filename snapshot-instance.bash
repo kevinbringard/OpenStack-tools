@@ -31,6 +31,8 @@ if [ -z $instance ]; then
   usage
 fi
 
+instance=$( echo "$instance" | sed 's/i-/instance-/' )
+
 # Set our defaults here
 if [ -z $name ]; then
   name=$( echo "$instance-$( date +'%Y-%h-%d-%H%M%S' )" )
@@ -45,21 +47,21 @@ if [ -z $path ]; then
 fi
 
 qemu_img=$( which qemu-img )
-if [ -z $qcow ]; then
+if [ -z $qemu_img ]; then
   echo "I couldn't find qemu-img, are you sure it's installed?"
   usage
 fi
 
 # If the instance doesn't exist then we can't very well snapshot it
-# if [ ! -f $path/$instance/disk ]; then
-#  echo "I couldn't find $path/$instance"
-#  usage
-# fi
+if [ ! -f $path/$instance/disk ]; then
+  echo "I couldn't find $path/$instance"
+  usage
+fi
 diskfile="$path/$instance/disk"
 snapname="snap-$( date +'%Y-%h-%d-%H%M%S' )"
 
 $qemu_img snapshot -c $snapname $diskfile
-$qemu_img convert -O qcow2 -s $snapname $directory/$name
+cd $path/$instance && $qemu_img convert -O qcow2 -s $snapname disk $directory/$nam-snap
 
 echo "Your new image should now be in $directory/$name"
 echo "Don't forget that if it was associated with a kernel, you will need to associate this with the same kernel when you upload it into your image store"

@@ -61,7 +61,7 @@ diskfile="$path/$instance/disk"
 snapname="snap-$( date +'%Y-%h-%d-%H%M%S' )"
 
 $qemu_img snapshot -c $snapname $diskfile
-cd $path/$instance && $qemu_img convert -O qcow2 -s $snapname disk $directory/$nam-snap
+cd $path/$instance && $qemu_img convert -O qcow2 -s $snapname disk $directory/$name
 
 echo "Your new image should now be in $directory/$name"
 echo "Don't forget that if it was associated with a kernel, you will need to associate this with the same kernel when you upload it into your image store"

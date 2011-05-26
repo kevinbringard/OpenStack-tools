@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 glance_upload=$( which glance-upload )
 ##
 # Use this to force a glance-upload location if it's not in your path (or to override the above if you're so inclined)
@@ -107,7 +109,7 @@ check_for_dupes
 
 if [ ! -z $ramdisk ]; then
   $glance_upload --disk-format=ari --container-format=ari --type=ramdisk $ramdisk $ramdisk_name
-  ramdisk_id=$( $glance index | grep $ramdisk_name | awk '{ print $1 '} )
+  ramdisk_id=$( $glance index | awk '{ print $1, $2 }' | egrep "(${ramdisk_name}$)" | awk '{ print $1}' )
 fi
 
 if [ ! -z $kernel ]; then
@@ -116,7 +118,7 @@ if [ ! -z $kernel ]; then
     usage
   fi
   $glance_upload --disk-format=aki --container-format=aki --type=kernel $kernel $kernel_name
-  kernel_id=$( $glance index | grep $kernel_name | awk '{ print $1 '} )
+  kernel_id=$( $glance index | awk '{ print $1, $2 }' | egrep "(${kernel_name}$)" | awk '{ print $1 '} )
 fi
 
 if [ -z $image ]; then
@@ -134,7 +136,7 @@ else
   exit 1
 fi
 
-image_id=$( $glance index | grep $image_name | awk '{ print $1 '} )
+image_id=$( $glance index | awk '{ print $1, $2 }' | egrep "(${image_name}$)" | awk '{ print $1 '} )
 echo "Setting the required properties..."
 $glance update $image_id type=machine version="$version" distro="$distro" uploader="$username@$host" arch="$arch"
 if [ ! -z $kernel_id ] && [ ! -z $kernel_version ]; then

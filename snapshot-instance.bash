@@ -33,6 +33,11 @@ fi
 
 instance=$( echo "$instance" | sed 's/i-/instance-/' )
 
+if [ ! -z $directory ] && [ ! -d $directory ]; then
+  echo "$directory doesn't seem to exist, creating it..."
+  mkdir -p $directory
+fi
+
 # Set our defaults here
 if [ -z $name ]; then
   name=$( echo "$instance-$( date +'%Y-%h-%d-%H%M%S' )" )

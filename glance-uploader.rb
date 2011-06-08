@@ -30,12 +30,12 @@ optparse = OptionParser.new do |opts|
   end
 
   options[:ramdisk] = nil
-  opts.on( '-r', '--ramdisk FILE', 'Ramdisk image to upload') do |ramdisk|
+  opts.on( '-r', '--ramdisk [FILE|ID]', 'Ramdisk image to upload, or existing ID to link to') do |ramdisk|
     options[:ramdisk] = ramdisk
   end
 
   options[:kernel] = nil
-  opts.on( '-k', '--kernel FILE', 'Kernel image to upload') do |kernel|
+  opts.on( '-k', '--kernel [FILE|ID]', 'Kernel image to upload, or existing ID to link to') do |kernel|
     options[:kernel] = kernel
   end
 
@@ -165,6 +165,27 @@ CONNECTION = Ogle::Client.new(
   :port => "#{options[:port]}"
 )
 
-# Run it and return the response
-response = create options, "", ""
-puts response.inspect
+
+# If the argument specified in kernel and ramdisk are files that exist, upload them
+if File.exist?("#{options[:kernel]}") && File.exist?("#{options[:ramdisk]}")
+  response = create options, "", ""
+
+# If the argument that was specified for ramdisk doesn't exist, and is an integer, then we assume it's a ramdisk_id and pass it along to create
+elsif File.exist?("#{options[:kernel]}") && options[:ramdisk].to_i != 0
+  response = create options, "#{options[:ramdisk]}", ""
+
+# If the argument that was specified for kernel doesn't exist, and is an integer, then we assume it's a kernel_id and pass it alone to create
+elsif File.exist?(options[:ramdisk]) && options[:kernel].to_i != 0
+  response = create options, "", "#{options[:kernel]}"
+
+# If neither ramdisk nor kernel are on disk and they're both integers, then we pass them along to create to link up
+elsif options[:ramdisk].to_i != 0 && options[:kernel].to_i != 0
+  response = create options, "#{options[:ramdisk]}", "#{options[:kernel]}"
+else
+  puts "Something seems to have gone wrong, I'm out of here"
+  exit 1
+end
+
+if defined? response != "nil"
+  puts response.inspect
+end

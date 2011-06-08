@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
+# gem install ogle
 require 'ogle'
+
 require 'optparse'
 
 # Define our options

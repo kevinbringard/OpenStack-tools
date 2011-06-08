@@ -85,7 +85,7 @@ unless options[:distro] && options[:version] && options[:arch]
   exit
 end
 
-# Set the name to be options[:image] if a name wasn't specified
+# Set the name to be "#{options[:distro]}_#{options[:version]}-#{options[:arch]}" if a name wasn't specified
 unless options[:name]
   options[:name] = "#{options[:distro]}_#{options[:version]}-#{options[:arch]}"
 end
@@ -94,7 +94,7 @@ def build_headers options, ramdisk_id, kernel_id, type
 
   # These headers are required
   required_headers = {
-    "x-image-meta-is-public"        => "true",
+    "x-image-meta-is-public" => "true",
   }
 
   if type == "ramdisk"

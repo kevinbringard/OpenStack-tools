@@ -8,7 +8,7 @@ options = {}
 
 optparse = OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-c|--custom_fields field1=1,field2=2]"
-
+  
   options[:host] = "localhost"
   opts.on( '-H', '--host HOST', 'Glance host to connect to (defaults to localhost)') do |host|
     options[:host] = host
@@ -24,8 +24,8 @@ optparse = OptionParser.new do |opts|
     options[:image] = image
   end
 
-  options[:name] = options[:image]
-  opts.on( '-n', '--name NAME', 'Name to give the image when it has been uploaded (defaults to the image filename)') do |name|
+  options[:name] = nil
+  opts.on( '-n', '--name NAME', 'Name to give the image when it has been uploaded (defaults to distro_version-arch)') do |name|
     options[:name] = name
   end
 
@@ -68,33 +68,49 @@ optparse = OptionParser.new do |opts|
     puts opts
     exit
   end
-  
-  # These options are required
-  unless options[:distro] && options[:version] && options[:arch]
-    puts "You seem to be missing a required option"
-    puts opts
-    exit
-  end
 end
-
+ 
 optparse.parse!
 
-def build_headers options, ramdisk_id, kernel_id
+# These options are required
+unless options[:distro] && options[:version] && options[:arch]
+  puts options.inspect
+  puts "You seem to be missing a required option"
+  puts opts
+  exit
+end
+
+# Set the name to be options[:image] if a name wasn't specified
+unless options[:name]
+  options[:name] = "#{options[:distro]}_#{options[:version]}-#{options[:arch]}"
+end
+
+def build_headers options, ramdisk_id, kernel_id, type
 
   # These headers are required
   required_headers = {
     "x-image-meta-is-public"        => "true",
-    "x-image-meta-name"             => "#{options[:name]}",
   }
 
+  if type == "ramdisk"
+    required_headers = { "x-image-meta-disk-format" => "ari", "x-image-meta-container-format" => "ari", "x-image-meta-name" => "#{options[:name]}-ramdisk" }.merge required_headers
+  elsif type == "kernel"
+    required_headers = { "x-image-meta-disk-format" => "aki", "x-image-meta-container-format" => "aki", "x-image-meta-name" => "#{options[:name]}-kernel" }.merge required_headers
+  elsif type == "machine"
+    required_headers = { "x-image-meta-disk-format" => "ami", "x-image-meta-container-format" => "ami" }.merge required_headers
+  else
+    puts "Something seems to be wrong... valid types are ramdisk, kernel or machine"
+    exit 1
+  end
+
   # If a ramdisk was included, we need to link the image to the ramdisk_id
-  if ramdisk_id
-    required_headers = { "x-image-meta-property-ramdisk_id" => "#{ramdisk_id}", "x-image-meta-disk-format" => "ari" }.merge required_headers
+  if ramdisk_id && type == "machine"
+    required_headers = { "x-image-meta-property-ramdisk_id" => "#{ramdisk_id}" }.merge required_headers
   end
   
   # Same as above, except for the kernel
-  if kernel_id
-    required_headers = { "x-image-meta-property-kernel_id" => "#{kernel_id}", "x-image-meta-container-format" => "aki" }.merge required_headers
+  if kernel_id && type == "machine"
+    required_headers = { "x-image-meta-property-kernel_id" => "#{kernel_id}" }.merge required_headers
   end
 
   # These are the required options specific to ATT
@@ -120,33 +136,30 @@ end
 
 def create options, ramdisk_id, kernel_id
   
-  # Define done for recursion
-  done = true
-  if options[:ramdisk] && ! ramdisk_id
+  if options[:ramdisk] && ramdisk_id == ""
     # Upload the ramdisk and parse it's ID from the response
-    @headers = build_headers options, ramdisk_id, kernel_id
+    @headers = build_headers options, ramdisk_id, kernel_id, "ramdisk"
     response = CONNECTION.image.create "#{options[:ramdisk]}", "#{options[:ramdisk]}", @headers
     ramdisk_id = response.id
-    done = false
   end
 
-  if options[:kernel] && ! kernel_id
+  if options[:kernel] && kernel_id == ""
     # Upload the kernel and parse it's ID from the response
-    @headers = build_headers options, ramdisk_id, kernel_id
+    @headers = build_headers options, ramdisk_id, kernel_id, "kernel"
     response = CONNECTION.image.create "#{options[:kernel]}", "#{options[:kernel]}", @headers
     kernel_id = response.id
-    done = false
   end
 
-  @headers = build_headers options, ramdisk_id, kernel_id
-  response = CONNECTION.image.create "#{options[:file]}", "#{options[:name]}", @headers
-
-  unless done
-    create options, ramdisk_id, kernel_id
-  end
+  @headers = build_headers options, ramdisk_id, kernel_id, "machine"
+  response = CONNECTION.image.create "#{options[:name]}", "#{options[:image]}", @headers
+  return response
 end
 
 CONNECTION = Ogle::Client.new(
   :host => "#{options[:host]}",
   :port => "#{options[:port]}"
 )
+
+# Run it and return the response
+response = create options, "", ""
+puts response.inspect

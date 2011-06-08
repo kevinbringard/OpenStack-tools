@@ -68,13 +68,18 @@ optparse = OptionParser.new do |opts|
     puts opts
     exit
   end
+
+  if ARGV.empty?
+    puts opts
+    exit
+  end
+
 end
  
 optparse.parse!
 
 # These options are required
 unless options[:distro] && options[:version] && options[:arch]
-  puts options.inspect
   puts "You seem to be missing a required option"
   puts opts
   exit

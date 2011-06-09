@@ -9,7 +9,7 @@ require 'optparse'
 options = {}
 
 optparse = OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-c|--custom_fields field1=1,field2=2]"
+  opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-s|--storage ENGINE] [-c|--custom_fields field1=1,field2=2]"
   
   options[:host] = "localhost"
   opts.on( '-H', '--host HOST', 'Glance host to connect to (defaults to localhost)') do |host|
@@ -49,6 +49,11 @@ optparse = OptionParser.new do |opts|
   options[:distro] = nil
   opts.on( '-d', '--distro DISTRO', 'The distribution you are uploading (Ubuntu, CentOS, Debian, etc) (required)') do |distro|
     options[:distro] = distro
+  end
+
+  options[:storage] = nil
+  opts.on( '-s', '--storage ENGINE', [:file, :s3, :swift ], 'The storage engine to use, valid options are file, s3, or swift. If you don\'t specify one it uses the glance default (currently file)') do |storage|
+    options[:storage] = storage
   end
 
   options[:kernel_version] = nil
@@ -98,6 +103,10 @@ def build_headers options, ramdisk_id, kernel_id, type
   required_headers = {
     "x-image-meta-is-public" => "true",
   }
+
+  if options[:storage] != nil
+    required_headers = {"x-image-meta-store" => "#{options[:storage]}" }.merge required_headers
+  end
 
   if type == "ramdisk"
     required_headers = { "x-image-meta-disk-format" => "ari", "x-image-meta-container-format" => "ari", "x-image-meta-name" => "#{options[:name]}-ramdisk" }.merge required_headers

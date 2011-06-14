@@ -9,7 +9,7 @@ require 'optparse'
 options = {}
 
 optparse = OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-s|--storage ENGINE] [-c|--custom_fields field1=1,field2=2]"
+  opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-u|--user user] [ -P|--pass password] [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-s|--storage ENGINE] [-c|--custom_fields field1=1,field2=2]"
   
   options[:host] = "localhost"
   opts.on( '-H', '--host HOST', 'Glance host to connect to (defaults to localhost)') do |host|
@@ -19,6 +19,16 @@ optparse = OptionParser.new do |opts|
   options[:port] = "9292"
   opts.on( '-p', '--port PORT', 'Glance port to connect to (defaults to 9292)') do |port|
     options[:port] = port
+  end
+
+  options[:user] = nil
+  opts.on( '-u', '--user USER', 'Username to authenticate with') do |user|
+    options[:user] = user
+  end
+
+  options[:pass] = nil
+  opts.on( '-P', '--pass PASSWORD', 'Password to authenticate with') do |pass|
+    options[:pass] = pass
   end
 
   options[:image] = nil
@@ -88,7 +98,7 @@ optparse.parse!
 # These options are required
 unless options[:distro] && options[:version] && options[:arch]
   puts "You seem to be missing a required option"
-  puts opts
+  puts optparse
   exit
 end
 
@@ -148,6 +158,7 @@ def build_headers options, ramdisk_id, kernel_id, type
   headers.merge!(required_headers) if required_headers
   headers.merge!(options_headers) if options_headers
   headers.merge!(custom_headers) if custom_headers
+
 end
 
 def create options, ramdisk_id, kernel_id
@@ -172,6 +183,8 @@ def create options, ramdisk_id, kernel_id
 end
 
 CONNECTION = Ogle::Client.new(
+  :user => "#{options[:user]}",
+  :pass => "#{options[:pass]}",
   :host => "#{options[:host]}",
   :port => "#{options[:port]}"
 )

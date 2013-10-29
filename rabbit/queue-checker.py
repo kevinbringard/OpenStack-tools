@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""
+This script requires the rabbitadmin.py script. I have included the version
+from RabbitMQ 3.1.5, but it can be obtained for your specific version via
+the rabbit web interface.
+"""
+
 import json
 import commands
 import argparse
@@ -11,9 +17,10 @@ parser.add_argument("--host", help="The hostname to get queue information from",
 parser.add_argument("--vhost", help="The rabbit vhost to get queue information for", default="/")
 parser.add_argument("--consumers", help="Comsumers threshold to alert on", default=0)
 parser.add_argument("--messages", help="Messages threshold to alert on", default=10)
+parser.add_argument("--rabbitadmin", help="Location of your rabbitadmin.py script", default="./rabbitadmin.py")
 args = parser.parse_args()
 
-command = "./rabbitadmin.py --host", args.host, "--vhost", args.vhost, "--username", args.user, "--password", args.password, "-f raw_json list queues"
+command = args.rabbitadmin, "--host", args.host, "--vhost", args.vhost, "--username", args.user, "--password", args.password, "-f raw_json list queues"
 command = " ".join(command)
 
 json_data = commands.getoutput(command)

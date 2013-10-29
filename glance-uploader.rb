@@ -2,7 +2,7 @@
 
 ##
 # Copyright (c) 2011 Kevin Bringard
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # "Software"), to deal in the Software without restriction, including
@@ -10,10 +10,10 @@
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
 # the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -25,7 +25,6 @@
 
 # gem install ogle
 require 'ogle'
-
 require 'optparse'
 
 # Define our options
@@ -33,7 +32,7 @@ options = {}
 
 optparse = OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} -i|--image file -v|--version version -d|--distro distribution -a|--arch architecture [-u|--user user] [ -P|--pass password] [-H|--host host] [-p|--port port] [-n|--name name] [-r|-ramdisk ramdisk] [-k|--kernel kernel] [-e|--kernel_version kernel_version] [-s|--storage ENGINE] [-c|--custom_fields field1=1,field2=2]"
-  
+
   options[:host] = "localhost"
   opts.on( '-H', '--host HOST', 'Glance host to connect to (defaults to localhost)') do |host|
     options[:host] = host
@@ -115,7 +114,7 @@ optparse = OptionParser.new do |opts|
   end
 
 end
- 
+
 optparse.parse!
 
 # These options are required
@@ -156,7 +155,7 @@ def build_headers options, ramdisk_id, kernel_id, type
   if ramdisk_id && type == "machine"
     required_headers = { "x-image-meta-property-ramdisk_id" => "#{ramdisk_id}" }.merge required_headers
   end
-  
+
   # Same as above, except for the kernel
   if kernel_id && type == "machine"
     required_headers = { "x-image-meta-property-kernel_id" => "#{kernel_id}" }.merge required_headers
@@ -185,7 +184,7 @@ def build_headers options, ramdisk_id, kernel_id, type
 end
 
 def create options, ramdisk_id, kernel_id
-  
+
   if options[:ramdisk] && ramdisk_id == ""
     # Upload the ramdisk and parse it's ID from the response
     @headers = build_headers options, ramdisk_id, kernel_id, "ramdisk"

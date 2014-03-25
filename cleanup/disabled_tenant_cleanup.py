@@ -8,6 +8,9 @@ from novaclient.v1_1 import client as nova
 from cinderclient import client as cinder
 from neutronclient.neutron import client as neutron
 
+# Please NOTE at this time this script does nothing more than print
+# the resources
+
 # Pull in the environment variables
 username=os.environ['OS_USERNAME']
 password=os.environ['OS_PASSWORD']
@@ -45,18 +48,12 @@ def delete_ports(port_uuids):
 
 # You'll need to put your DB creds in here. You'll need
 # SELECT on nova.*, cinder.*, neutron.* and glance.*
-con = mdb.connect('XXX', 'XXX', 'XXX')
+con = mdb.connect('HOST', 'USER', 'PASS')
 
 with con:
   cur = con.cursor(mdb.cursors.DictCursor)
 
-  # Enable this query to search for disabled tenants
-  # cur.execute("select * from keystone.project where enabled = 0")
-
-  # Enable this query tp search for live tenants. Please ensure you're not
-  # actually deleting anthing as this selects tenants which are not
-  # disabled
-  cur.execute("select * from keystone.project where enabled = 1 limit 9")
+  cur.execute("select * from keystone.project where enabled = 0")
 
   rows = cur.fetchall()
 

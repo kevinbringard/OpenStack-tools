@@ -18,22 +18,26 @@ password=os.environ['OS_PASSWORD']
 auth_url=os.environ['OS_AUTH_URL']
 project_id=os.environ['OS_TENANT_NAME']
 tenant_id=os.environ['OS_TENANT_NAME']
+
 DESCRIPTION = "OpenStack Resource Cleanup Tool"
-DB_USER="user"
-DB_PASS="pass"
-DB_HOST="db-host"
+
+# Your DB credentials need SELECT on neutron.*
+# nova.*, cinder.* and glance.*
+DB_USER="USER"
+DB_PASS="PASS"
+DB_HOST="HOST"
 
 def parse_args():
   # ensure environment has necessary items to authenticate
   for key in ['OS_TENANT_NAME', 'OS_USERNAME', 'OS_PASSWORD',
-              'OS_AUTH_URL']:
+      'OS_AUTH_URL']:
     if key not in os.environ.keys():
       print "Your environment is missing, \
           please source your OpenStack credentials"
 
   ap = argparse.ArgumentParser(description=DESCRIPTION)
   ap.add_argument('-d', '--delete', action='store_true',
-                  default=False, help='Delete active resources')
+      default=False, help='Delete active resources')
 
   return ap.parse_args()
 
@@ -42,34 +46,117 @@ def delete_instances(instance_uuids):
 
   for row in instance_uuids:
     instance_uuid = row['uuid']
-    print "Deleting instance: %s" % instance_uuid
-#    nova_client.servers.delete(instance_uuid)
+    if not instance_uuid:
+      print "I couldn't find any instances"
+    else:
+      print "Deleting instance: %s" % instance_uuid
+      os.system("nova delete %s" % instance_uuid)
 
 def delete_snapshots(snapshot_uuids):
-  cinder_client = cinder.Client('1', username, password, project_id, auth_url)
 
   for row in snapshot_uuids:
     snapshot_uuid = row["id"]
-#    cinder_client.snapshot.delete(snapshot_uuid)
+    print "Deleting snapshot %s" % snapshot_uuid
+    os.system("cinder snapshot-delete %s" % snapshot_uuid)
 
 def delete_volumes(volume_uuids):
-  cinder_client = cinder.Client('1', username, password, project_id, auth_url)
 
   for row in volume_uuids:
     volume_uuid = row['id']
-  #  cinder_client.volumes.delete()
+    print "Deleting volume %s" % volume_uuid
+    os.system("cinder delete %s" % volume_uuid)
 
-def delete_ports(port_uuids):
-  """
-  # neutron_client = neutron.Client('2.0', auth_url, tenant_id, username, password)
+def delete_images(image_uuids):
 
-  for row in port_uuids:
+  for row in image_uuids:
+    image_uuid = row['id']
+    print "Deleting image %s" % image_uuid
+    os.system("glance image-delete %s" % image_uuid)
+
+def network_cleanup(tenant_id):
+
+  # First we have to cleanup any leftover floating IPs
+  # neutron floatingip-delete <floatingip-id>
+  cur.execute("select * from neutron.floatingips where tenant_id = %s ;", (tenant_id))
+  floating_rows = cur.fetchall()
+  for row in floating_rows:
+    floating_uuid = row['id']
+    floating_ip = row['floating_ip_address']
+    fixed_ip = row['fixed_ip_address']
+    if not fixed_ip and floating_ip:
+      print "IP %s has no fixed_ip. Deleting." % floating_ip
+      os.system("neutron floatingip-delete %s" % floating_uuid)
+    if fixed_ip and floating_ip:
+      print "IP %s still has fixed_ip %s" % floating_ip, fixed_ip
+
+  # Then we need to clear the router's gateway
+  # neutron router-gateway-clear router1
+  cur.execute("select * from neutron.routers where tenant_id = %s ;", (tenant_id))
+  router_rows = cur.fetchall()
+  for row in router_rows:
+    router_uuid = row['id']
+    gateway_port_id = row['gw_port_id']
+    if not gateway_port_id:
+      print "It looks like router %s doesn't have a gateway, skipping" % router_uuid
+    else:
+      os.system("neutron router-gateway-clear %s" % router_uuid)
+
+    # Then we remove the subnet(s) from the router
+    # neutron router-interface-delete router1 <subnet-id>
+    # cur.execute("select * from neutron.subnets where tenant_id = %s ;", (tenant_id))
+    cur.execute("select * from neutron.subnets where network_id = (select network_id from neutron.ports where device_id = '%s' and device_owner = 'network:router_interface');" % router_uuid)
+    subnet_rows = cur.fetchall()
+    for row in subnet_rows:
+      subnet_uuid = row['id']
+    if not subnet_uuid:
+      print "I couldn't find any subnets to remove"
+    else:
+      os.system("neutron router-interface-delete %s %s" % (router_uuid, subnet_uuid))
+      os.system("neutron subnet-delete %s" % subnet_uuid)
+
+  # Finally, delete the router itself
+  # neutron router-delete router1
+  cur.execute("select * from neutron.routers where tenant_id = %s ;", (tenant_id))
+  router_rows = cur.fetchall()
+  for row in router_rows:
+    router_uuid = row['id']
+    router_name = row['name']
+    if not router_uuid:
+      print "I couldn't find any more routers"
+    else:
+      os.system("neutron router-delete %s" % router_uuid)
+
+  # Now we delete the networks
+  cur.execute("select * from neutron.networks where tenant_id = %s ;", (tenant_id))
+  network_rows = cur.fetchall()
+  for row in network_rows:
+    network_uuid = row['id']
+    network_name = row['name']
+    if not network_uuid:
+      print "I couldn't find any more networks"
+    else:
+      os.system("neutron net-delete %s" % network_uuid)
+
+  # And the load balancers (pools)
+  cur.execute("select * from neutron.pools where tenant_id = %s ;", (tenant_id))
+  lb_rows = cur.fetchall()
+  for row in lb_rows:
+    lb_uuid = row['id']
+    os.system("neutron lb-pool-delete %s" % lb_uuid)
+
+  # And the VIPs
+  cur.execute("select * from neutron.vips where tenant_id = %s ;", (tenant_id))
+  vip_rows = cur.fetchall()
+  for row in vip_rows:
+    vip_uuid = row['id']
+    os.system("neutron lb-vip-delete %s" % vip_uuid)
+
+  # Then do one more pass for any leftover ports
+  cur.execute("select * from neutron.ports where tenant_id = %s ;", (tenant_id))
+  port_rows = cur.fetchall()
+  for row in port_rows:
     port_uuid = row['id']
-  # neutron_client.delete_port(port_uuid)
-
-  # print neutron_client.list_networks()
-
-  """
+    os.system("neutron port-delete %s" % port_uuid)
 
 def print_output(field_type, uuid_field, name_field, rows):
   print "  %s:" % field_type
@@ -83,15 +170,14 @@ def print_output(field_type, uuid_field, name_field, rows):
 
 args = parse_args()
 
-# You'll need to put your DB creds in here. You'll need
+# You'll need to put your DB creds in here.
 
 con = mdb.connect(DB_HOST, DB_USER, DB_PASS)
 
 with con:
   cur = con.cursor(mdb.cursors.DictCursor)
 
-  # cur.execute("select * from keystone.project where enabled = 0")
-  cur.execute("select * from keystone.project where enabled = 1 limit 10")
+  cur.execute("select * from keystone.project where enabled = 0")
 
   rows = cur.fetchall()
 
@@ -109,84 +195,26 @@ with con:
       else:
         print_output("Instances", "uuid", "hostname", rows)
 
-      # Routers
-      cur.execute("select * from neutron.routers where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
+      # Cleanup the network
       if args.delete:
-        delete_routers(rows)
-      else:
-        print_output("Routers", "id", "name", rows)
-
-      # Networks
-      cur.execute("select * from neutron.networks where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_networks(rows)
-      else:
-        print_output("Networks", "id", "name", rows)
-
-      # Subnets
-      cur.execute("select * from neutron.subnets where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_subnets(rows)
-      else:
-        print_output("Subnets", "id", "name", rows)
-
-      # Floating IPs
-      cur.execute("select * from neutron.floatingips where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_floating_ips(rows)
-      else:
-        print_output("Floating IPs", "id", "floating_ip_address", rows)
-
-      # Load balancers (pools)
-      cur.execute("select * from neutron.pools where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_load_balancers(rows)
-      else:
-        print_output("Load Balancers", "id", "name", rows)
-
-      # VIPs
-      cur.execute("select * from neutron.vips where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_vips(rows)
-      else:
-        print_output("VIPs", "id", "name", rows)
-
-      # Ports
-      cur.execute("select * from neutron.ports where tenant_id = %s ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_ports(rows)
-      else:
-        print_output("Ports", "id", "name", rows)
+        network_cleanup(tenant_id)
 
       # Snapshots
       cur.execute("select * from cinder.snapshots where project_id = %s and deleted = 0;", (tenant_id))
       rows = cur.fetchall()
       if args.delete:
         delete_snapshots(rows)
-      else:
-        print_output("Snapshots", "id", "", rows)
 
       # Volumes
       cur.execute("select * from cinder.volumes where project_id = %s and deleted = 0 ;", (tenant_id))
       rows = cur.fetchall()
       if args.delete:
         delete_volumes(rows)
-      else:
-        print_output("Volumes", "id", "", rows)
 
       # Images (glance)
       cur.execute("select * from glance.images where owner = %s and status != 'deleted' and is_public = 0", (tenant_id))
       rows = cur.fetchall()
       if args.delete:
         delete_images(rows)
-      else:
-        print_output("Images", "id", "name", rows)
 
 con.close()

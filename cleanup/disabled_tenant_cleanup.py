@@ -4,7 +4,6 @@ import MySQLdb as mdb
 import sys
 import os
 import argparse
-import simplejson as json
 
 # Your DB creds need SELECT on neutron.*
 # nova.*, cinder.* and glance.*

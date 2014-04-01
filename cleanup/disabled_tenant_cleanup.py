@@ -9,6 +9,15 @@ from novaclient.v1_1 import client as nova
 from cinderclient import client as cinder
 from neutronclient.neutron import client as neutron
 
+# Your DB creds need SELECT on neutron.*
+# nova.*, cinder.* and glance.*
+DB_USER=""
+DB_PASS=""
+DB_HOST=""
+
+# For argparse
+DESCRIPTION = "OpenStack Resource Cleanup Tool"
+
 def parse_args():
   # ensure environment has necessary items to authenticate
   for key in ['OS_TENANT_NAME', 'OS_USERNAME', 'OS_PASSWORD',
@@ -151,22 +160,19 @@ def print_output(field_type, uuid_field, name_field, rows):
     print "    %s (%s)" % (uuid, name)
 
 # Parse our arguments
-DESCRIPTION = "OpenStack Resource Cleanup Tool"
 args = parse_args()
 
-# Setup our environment
+# Setup our openstack environment
 username=os.environ['OS_USERNAME']
 password=os.environ['OS_PASSWORD']
 auth_url=os.environ['OS_AUTH_URL']
 project_id=os.environ['OS_TENANT_NAME']
 tenant_id=os.environ['OS_TENANT_NAME']
 
-# Put your DB creds here
-# Your DB creds need SELECT on neutron.*
-# nova.*, cinder.* and glance.*
-DB_USER="USER"
-DB_PASS="PASS"
-DB_HOST="HOST"
+# Make sure we set the DB env
+if not DB_HOST or not DB_USER or not DB_PASS:
+  print "You must specify DB_HOST, DB_USER and DB_PASS"
+  exit(1)
 
 # Do the thing
 con = mdb.connect(DB_HOST, DB_USER, DB_PASS)

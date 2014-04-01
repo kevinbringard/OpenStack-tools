@@ -9,31 +9,13 @@ from novaclient.v1_1 import client as nova
 from cinderclient import client as cinder
 from neutronclient.neutron import client as neutron
 
-# Please NOTE at this time this script does nothing more than print
-# the resources
-
-# Pull in the environment variables
-username=os.environ['OS_USERNAME']
-password=os.environ['OS_PASSWORD']
-auth_url=os.environ['OS_AUTH_URL']
-project_id=os.environ['OS_TENANT_NAME']
-tenant_id=os.environ['OS_TENANT_NAME']
-
-DESCRIPTION = "OpenStack Resource Cleanup Tool"
-
-# Your DB credentials need SELECT on neutron.*
-# nova.*, cinder.* and glance.*
-DB_USER="USER"
-DB_PASS="PASS"
-DB_HOST="HOST"
-
 def parse_args():
   # ensure environment has necessary items to authenticate
   for key in ['OS_TENANT_NAME', 'OS_USERNAME', 'OS_PASSWORD',
       'OS_AUTH_URL']:
     if key not in os.environ.keys():
-      print "Your environment is missing, \
-          please source your OpenStack credentials"
+      print "Your environment is missing, please source your OpenStack credentials"
+      exit(1)
 
   ap = argparse.ArgumentParser(description=DESCRIPTION)
   ap.add_argument('-d', '--delete', action='store_true',
@@ -168,53 +150,64 @@ def print_output(field_type, uuid_field, name_field, rows):
       name = row[name_field]
     print "    %s (%s)" % (uuid, name)
 
+# Parse our arguments
+DESCRIPTION = "OpenStack Resource Cleanup Tool"
 args = parse_args()
 
-# You'll need to put your DB creds in here.
+# Setup our environment
+username=os.environ['OS_USERNAME']
+password=os.environ['OS_PASSWORD']
+auth_url=os.environ['OS_AUTH_URL']
+project_id=os.environ['OS_TENANT_NAME']
+tenant_id=os.environ['OS_TENANT_NAME']
 
+# Put your DB creds here
+# Your DB creds need SELECT on neutron.*
+# nova.*, cinder.* and glance.*
+DB_USER="USER"
+DB_PASS="PASS"
+DB_HOST="HOST"
+
+# Do the thing
 con = mdb.connect(DB_HOST, DB_USER, DB_PASS)
+cur = con.cursor(mdb.cursors.DictCursor)
+cur.execute("select * from keystone.project where enabled = 0")
+rows = cur.fetchall()
 
-with con:
-  cur = con.cursor(mdb.cursors.DictCursor)
+if rows:
+  for row in rows:
+    tenant_id = row["id"]
+    name = row["name"]
+    print "Tenant: %s (%s)" % (tenant_id, name)
 
-  cur.execute("select * from keystone.project where enabled = 0")
+    # Instances
+    cur.execute("select * from nova.instances where project_id = %s and deleted = 0 ;", (tenant_id))
+    rows = cur.fetchall()
+    if args.delete:
+      delete_instances(rows)
+    else:
+      print_output("Instances", "uuid", "hostname", rows)
 
-  rows = cur.fetchall()
+    # Cleanup the network
+    if args.delete:
+      network_cleanup(tenant_id)
 
-  if rows:
-    for row in rows:
-      tenant_id = row["id"]
-      name = row["name"]
-      print "Tenant: %s (%s)" % (tenant_id, name)
+    # Snapshots
+    cur.execute("select * from cinder.snapshots where project_id = %s and deleted = 0;", (tenant_id))
+    rows = cur.fetchall()
+    if args.delete:
+      delete_snapshots(rows)
 
-      # Instances
-      cur.execute("select * from nova.instances where project_id = %s and deleted = 0 ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_instances(rows)
-      else:
-        print_output("Instances", "uuid", "hostname", rows)
+    # Volumes
+    cur.execute("select * from cinder.volumes where project_id = %s and deleted = 0 ;", (tenant_id))
+    rows = cur.fetchall()
+    if args.delete:
+      delete_volumes(rows)
 
-      # Cleanup the network
-      if args.delete:
-        network_cleanup(tenant_id)
-
-      # Snapshots
-      cur.execute("select * from cinder.snapshots where project_id = %s and deleted = 0;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_snapshots(rows)
-
-      # Volumes
-      cur.execute("select * from cinder.volumes where project_id = %s and deleted = 0 ;", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_volumes(rows)
-
-      # Images (glance)
-      cur.execute("select * from glance.images where owner = %s and status != 'deleted' and is_public = 0", (tenant_id))
-      rows = cur.fetchall()
-      if args.delete:
-        delete_images(rows)
+    # Images (glance)
+    cur.execute("select * from glance.images where owner = %s and status != 'deleted' and is_public = 0", (tenant_id))
+    rows = cur.fetchall()
+    if args.delete:
+      delete_images(rows)
 
 con.close()

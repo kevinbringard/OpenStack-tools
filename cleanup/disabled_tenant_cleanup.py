@@ -5,9 +5,6 @@ import sys
 import os
 import argparse
 import simplejson as json
-from novaclient.v1_1 import client as nova
-from cinderclient import client as cinder
-from neutronclient.neutron import client as neutron
 
 # Your DB creds need SELECT on neutron.*
 # nova.*, cinder.* and glance.*
@@ -33,7 +30,6 @@ def parse_args():
   return ap.parse_args()
 
 def delete_instances(instance_uuids):
-  nova_client = nova.Client(username, password, project_id, auth_url)
 
   for row in instance_uuids:
     instance_uuid = row['uuid']

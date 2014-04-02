@@ -90,8 +90,9 @@ def network_cleanup(tenant_id):
 
     # Then we remove the subnet(s) from the router
     # neutron router-interface-delete router1 <subnet-id>
-    # cur.execute("select * from neutron.subnets where tenant_id = %s ;", (tenant_id))
-    cur.execute("select * from neutron.subnets where network_id = (select network_id from neutron.ports where device_id = '%s' and device_owner = 'network:router_interface');" % router_uuid)
+    cur.execute("select * from neutron.subnets where network_id = \
+        (select network_id from neutron.ports where device_id = '%s' and \
+        device_owner = 'network:router_interface');" % router_uuid)
     subnet_rows = cur.fetchall()
     for row in subnet_rows:
       subnet_uuid = row['id']

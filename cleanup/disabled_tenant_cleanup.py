@@ -3,6 +3,7 @@
 import MySQLdb as mdb
 import sys
 import os
+import subprocess
 import argparse
 
 # Your DB creds need SELECT on neutron.*
@@ -36,28 +37,28 @@ def delete_instances(instance_uuids):
       print "I couldn't find any instances"
     else:
       print "Deleting instance: %s" % instance_uuid
-      os.system("nova delete %s" % instance_uuid)
+      subprocess.check_call(["nova", "delete", instance_uuid])
 
 def delete_snapshots(snapshot_uuids):
 
   for row in snapshot_uuids:
     snapshot_uuid = row["id"]
     print "Deleting snapshot %s" % snapshot_uuid
-    os.system("cinder snapshot-delete %s" % snapshot_uuid)
+    subprocess.check_call(["cinder", "snapshot-delete", snapshot_uuid])
 
 def delete_volumes(volume_uuids):
 
   for row in volume_uuids:
     volume_uuid = row['id']
     print "Deleting volume %s" % volume_uuid
-    os.system("cinder delete %s" % volume_uuid)
+    subprocess.check_call(["cinder", "delete", volume_uuid])
 
 def delete_images(image_uuids):
 
   for row in image_uuids:
     image_uuid = row['id']
     print "Deleting image %s" % image_uuid
-    os.system("glance image-delete %s" % image_uuid)
+    subprocess.check_call(["glance", "image-delete", image_uuid])
 
 def network_cleanup(tenant_id):
 
@@ -71,7 +72,7 @@ def network_cleanup(tenant_id):
     fixed_ip = row['fixed_ip_address']
     if not fixed_ip and floating_ip:
       print "IP %s has no fixed_ip. Deleting." % floating_ip
-      os.system("neutron floatingip-delete %s" % floating_uuid)
+      subprocess.check_call("[neutron", "floatingip-delete", floating_uuid])
     if fixed_ip and floating_ip:
       print "IP %s still has fixed_ip %s" % floating_ip, fixed_ip
 
@@ -85,7 +86,7 @@ def network_cleanup(tenant_id):
     if not gateway_port_id:
       print "It looks like router %s doesn't have a gateway, skipping" % router_uuid
     else:
-      os.system("neutron router-gateway-clear %s" % router_uuid)
+      subprocess.check_call(["neutron", "router-gateway-clear", router_uuid])
 
     # Then we remove the subnet(s) from the router
     # neutron router-interface-delete router1 <subnet-id>
@@ -97,8 +98,8 @@ def network_cleanup(tenant_id):
     if not subnet_uuid:
       print "I couldn't find any subnets to remove"
     else:
-      os.system("neutron router-interface-delete %s %s" % (router_uuid, subnet_uuid))
-      os.system("neutron subnet-delete %s" % subnet_uuid)
+      subprocess.check_call(["neutron", "router-interface-delete", router_uuid, subnet_uuid])
+      subprocess.check_call(["neutron", "subnet-delete", subnet_uuid])
 
   # Finally, delete the router itself
   # neutron router-delete router1
@@ -110,7 +111,7 @@ def network_cleanup(tenant_id):
     if not router_uuid:
       print "I couldn't find any more routers"
     else:
-      os.system("neutron router-delete %s" % router_uuid)
+      subprocess.check_call(["neutron", "router-delete", router_uuid])
 
   # Now we delete the networks
   cur.execute("select * from neutron.networks where tenant_id = %s ;", (tenant_id))
@@ -121,28 +122,28 @@ def network_cleanup(tenant_id):
     if not network_uuid:
       print "I couldn't find any more networks"
     else:
-      os.system("neutron net-delete %s" % network_uuid)
+      subprocess.check_call(["neutron", "net-delete", network_uuid])
 
   # And the load balancers (pools)
   cur.execute("select * from neutron.pools where tenant_id = %s ;", (tenant_id))
   lb_rows = cur.fetchall()
   for row in lb_rows:
     lb_uuid = row['id']
-    os.system("neutron lb-pool-delete %s" % lb_uuid)
+    subprocess.check_call(["neutron", "lb-pool-delete", lb_uuid])
 
   # And the VIPs
   cur.execute("select * from neutron.vips where tenant_id = %s ;", (tenant_id))
   vip_rows = cur.fetchall()
   for row in vip_rows:
     vip_uuid = row['id']
-    os.system("neutron lb-vip-delete %s" % vip_uuid)
+    subprocess.check_call(["neutron", "lb-vip-delete", vip_uuid])
 
   # Then do one more pass for any leftover ports
   cur.execute("select * from neutron.ports where tenant_id = %s ;", (tenant_id))
   port_rows = cur.fetchall()
   for row in port_rows:
     port_uuid = row['id']
-    os.system("neutron port-delete %s" % port_uuid)
+    subprocess.check_call(["neutron", "port-delete", port_uuid])
 
 def print_output(field_type, uuid_field, name_field, rows):
   print "  %s:" % field_type

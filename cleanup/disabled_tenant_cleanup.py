@@ -25,7 +25,9 @@ def parse_args():
 
   ap = argparse.ArgumentParser(description=DESCRIPTION)
   ap.add_argument('-d', '--delete', action='store_true',
-      default=False, help='Delete active resources')
+      default=False, help='Delete active resources', dest='delete')
+  ap.add_argument('-t', '--tenant', dest='tenantid',
+      default=False, help='Specify a tenant UUID to cleanup')
 
   return ap.parse_args()
 
@@ -72,7 +74,7 @@ def network_cleanup(tenant_id):
     fixed_ip = row['fixed_ip_address']
     if not fixed_ip and floating_ip:
       print "IP %s has no fixed_ip. Deleting." % floating_ip
-      subprocess.check_call("[neutron", "floatingip-delete", floating_uuid])
+      subprocess.check_call(["neutron", "floatingip-delete", floating_uuid])
     if fixed_ip and floating_ip:
       print "IP %s still has fixed_ip %s" % floating_ip, fixed_ip
 
@@ -174,7 +176,10 @@ if not DB_HOST or not DB_USER or not DB_PASS:
 # Do the thing
 con = mdb.connect(DB_HOST, DB_USER, DB_PASS)
 cur = con.cursor(mdb.cursors.DictCursor)
-cur.execute("select * from keystone.project where enabled = 0")
+if args.tenantid:
+  cur.execute("select * from keystone.project where id = %s ;", (args.tenantid))
+else:
+  cur.execute("select * from keystone.project where enabled = 0")
 rows = cur.fetchall()
 
 if rows:
@@ -200,17 +205,23 @@ if rows:
     rows = cur.fetchall()
     if args.delete:
       delete_snapshots(rows)
+    else:
+      print_output("Snapshots", "id", "name", rows)
 
     # Volumes
     cur.execute("select * from cinder.volumes where project_id = %s and deleted = 0 ;", (tenant_id))
     rows = cur.fetchall()
     if args.delete:
       delete_volumes(rows)
+    else:
+      print_output("Volumes", "id", "display_description", rows)
 
     # Images (glance)
     cur.execute("select * from glance.images where owner = %s and status != 'deleted' and is_public = 0", (tenant_id))
     rows = cur.fetchall()
     if args.delete:
       delete_images(rows)
+    else:
+      print_output("Images", "id", "name", rows)
 
 con.close()

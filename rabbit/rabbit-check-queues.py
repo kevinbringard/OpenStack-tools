@@ -52,7 +52,7 @@ def check_idle_time(idle_since, queue_name, idle_delta=86400):
   # 2015-07-31 16:51:04
   idle_time = datetime.datetime.strptime(idle_since, "%Y-%m-%d %H:%M:%S")
   if delta_time > idle_time:
-    print "We've been idle more than a day, deleting queue %s" % queue_name
+    print "We've been idle more than a day, and have no consumers; deleting queue %s" % queue_name
     return True
 
 for queue in queues:

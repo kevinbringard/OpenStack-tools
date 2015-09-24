@@ -63,7 +63,7 @@ connection_data = connection_response.json()
 def delete_connection(connection_name):
   url = connection_url + connection_name
   response = requests.delete(url, auth=HTTPBasicAuth(user, password))
-  print "We've been idle more than %s seconds, deleting connection %s" % (time_delta, connection_name)
+  print "We've been idle more than %s seconds, and have no consumers; deleting connection %s" % (time_delta, connection_name)
   print "Responose: %s" % response
 
 def check_if_idle(idle_since, connection_name, idle_delta=86400):

@@ -1,0 +1,116 @@
+# vim:ft=ansible:
+
+---
+- hosts: mcp
+  gather_facts: no
+  tasks:
+
+    - name: Cleanup git environment
+      command: rm -rf /tmp/git/
+      run_once: true
+
+    - name: Check out novanet2neutron code
+      shell: mkdir /tmp/git && cd /tmp/git && git clone https://github.com/kevinbringard/novanet2neutron.git && cd novanet2neutron && git checkout icehouse
+      register: git_checked_out
+      run_once: true
+
+    - name: Run create-conf
+      shell: cd /tmp/git/novanet2neutron && ./create-conf.py
+      when: git_checked_out.rc == 0
+      run_once: true
+
+    - name: Run generate_network_data.py
+      shell: . /tmp/openrc.sh; cd /tmp/git/novanet2neutron; ./generate-network-data.py
+      run_once: true
+
+    - name: Block iptables reload
+      shell: echo "RELOAD_CHAINS=0" > /etc/default/iptables
+
+    - name: Run spine on mcp nodes
+      command: spine-mgmt --release latest --profile NoPacemaker
+
+    - name: Install neutron database
+      script: ./setup-neutron-db.bash
+      run_once: true
+
+    # Make sure all the neutron services are stopped
+    - service: name={{ item }} state=stopped
+      with_items:
+        - neutron-dhcp-agent
+        - neutron-metadata-agent
+        - neutron-plugin-linuxbridge-agent
+        - neutron-server
+
+    - name: Re-enable iptables
+      command: rm /etc/default/iptables
+
+    - name: Load Neutron API chains from conf
+      command: /usr/local/bin/iptables-load-chain -f /etc/iptables2/chains/mc-neutron-filter-pre-INPUT.conf
+
+    - name: Load Neutron FORWARD chains from conf
+      command: /usr/local/bin/iptables-load-chain -f /etc/iptables2/chains/mc-ntron-filter-pre-FORWARD.conf
+
+    - name: Reload spine-filter-pre-FORWARD.conf
+      command: /usr/local/bin/iptables-load-chain -f /etc/iptables2/chains/spine-filter-pre-FORWARD.conf
+
+    - name: Reload spine-filter-pre-INPUT.conf
+      command: /usr/local/bin/iptables-load-chain -f /etc/iptables2/chains/spine-filter-pre-INPUT.conf
+
+    - name: Fix /var/lib/neutron/lock permissions
+      file: path=/var/lib/neutron/lock state=directory owner=neutron group=neutron
+
+    - name: Restart neutron-server
+      service: name=neutron-server state=restarted
+
+    - name: Restart nova-api
+      command: crm resource restart nova-api
+      run_once: true
+
+    - name: Stop nova-networking
+      command: crm resource stop nova-network-1
+      run_once: true
+
+    - name: Populate keystone data
+      command: /tmp/init-keystone_data
+      run_once: true
+
+    - name: Remove VLANs
+      shell: for i in $( brctl show | grep vlan | awk '{ print $( NF ) }' ); do echo $i && sudo vconfig rem $i; done
+
+    # Start the neutron services on just node1
+    - service: name={{ item }} state=started
+      with_items:
+        - neutron-plugin-linuxbridge-agent
+        - neutron-dhcp-agent
+        - neutron-metadata-agent
+      run_once: true
+
+# Finally we need to set the mhvs to the fake compute driver. This will get reverted later.
+- hosts: mhv
+  gather_facts: no
+  tasks:
+
+    - name: Block iptables reload
+      shell: echo "RELOAD_CHAINS=0" > /etc/default/iptables
+
+    - name: Run spine on mhv nodes
+      command: spine-mgmt --release latest --profile NoPacemaker
+
+    - name: Update compute driver to fake.FakeDriver
+      lineinfile: dest=/etc/nova/nova.conf regexp='compute_driver=libvirt.LibvirtDriver' line='compute_driver=fake.FakeDriver' state=present backrefs=yes
+      register: driver
+
+    - name: Fix /var/lib/neutron/lock permissions
+      file: path=/var/lib/neutron/lock state=directory owner=neutron group=neutron
+
+    - service: name=neutron-plugin-linuxbridge-agent state=restarted
+
+    - name: Re-enable iptables
+      command: rm /etc/default/iptables
+
+    - name: Make sure libvirt is running
+      service: name=libvirt-bin state=started
+
+    - name: Restart nova-compute
+      service: name=nova-compute state=restarted
+      when: driver.changed

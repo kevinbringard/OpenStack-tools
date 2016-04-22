@@ -1,0 +1,14 @@
+- hosts: mhv
+  gather_facts: no
+  tasks:
+
+    - name: Revert compute driver
+      lineinfile: dest=/etc/nova/nova.conf regexp='compute_driver=fake.FakeDriver' line='compute_driver=libvirt.LibvirtDriver' state=present backrefs=yes
+      register: driver
+
+    - name: Make sure libvirt is running
+      service: name=libvirt-bin state=started
+
+    - name: Restart nova-compute
+      service: name=nova-compute state=restarted
+      when: driver.changed

@@ -1,0 +1,35 @@
+# vim:ft=ansible:
+
+---
+- hosts: mcp[0]
+  gather_facts: no
+  tasks:
+
+    - name: Check for novanet2neutron config
+      stat: path=/tmp/git/novanet2neutron/novanet2neutron.conf
+      register: novanet2neutron_conf
+
+    - name: Generate compute hosts' configs
+      shell: cd /tmp/git/novanet2neutron && ./create-compute-conf.py -H {{ item }}
+      with_items: groups.mhv
+      when: novanet2neutron_conf.stat.exists
+      register: compute_configs_generated
+
+    - name: Fetch config files from mcp1
+      fetch: src=/tmp/git/novanet2neutron/{{ item }}_compute.conf dest=/tmp/ flat=yes
+      with_items: groups.mhv
+      when: compute_configs_generated.results[2].rc == 0
+
+- hosts: mhv
+  tasks:
+
+    - name: Cleanup git environment
+      command: rm -rf /tmp/git/
+
+    - name: Check out novanet2neutron code
+      shell: mkdir /tmp/git && cd /tmp/git && git clone https://github.com/kevinbringard/novanet2neutron.git && cd novanet2neutron && git checkout icehouse
+      register: git_checked_out
+
+    - name: Copy config files into place
+      copy: src=/tmp/{{ ansible_nodename }}_compute.conf dest=/tmp/git/novanet2neutron/{{ ansible_nodename }}_compute.conf
+      when: git_checked_out.rc == 0

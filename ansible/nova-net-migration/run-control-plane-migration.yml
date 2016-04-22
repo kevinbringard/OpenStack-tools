@@ -1,0 +1,28 @@
+# vim:ft=ansible:
+
+---
+
+- hosts: mcp[0]
+
+  pre_tasks:
+    - fail: msg='nova_zone is not set. Please set it with -e "nova_zone=zonename"'
+      when: nova_zone is not defined or nova_zone == ''
+
+  tasks:
+
+    - name: Check for novanet2neutron config
+      stat: path=/tmp/git/novanet2neutron/novanet2neutron.conf
+      register: novanet2neutron_conf
+
+    - name: Run migrate control
+      shell: . /tmp/openrc.sh; /tmp/git/novanet2neutron/migrate-control.py -z {{ nova_zone }} -c /tmp/git/novanet2neutron/novanet2neutron.conf
+      when: novanet2neutron_conf.stat.exists
+
+    - name: Run migrate-security-groups
+      command: /tmp/git/novanet2neutron/migrate-secgroups.py -c /tmp/git/novanet2neutron/novanet2neutron.conf
+
+    - name: Run update-dhcp-servers
+      shell: . /tmp/openrc.sh; /tmp/git/novanet2neutron/update-dhcp-servers.py -c /tmp/git/novanet2neutron/novanet2neutron.conf
+
+    - name: Restart neutron-dhcp-agent
+      service: name=neutron-dhcp-agent state=restarted

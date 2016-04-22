@@ -1,0 +1,14 @@
+- hosts: mhv
+  gather_facts: no
+  tasks:
+
+    - name: Remove nova-networking bridges from compute nodes
+      shell: for i in $( brctl show | grep 8000.000000000000 | awk '{ print $1 }' ); do ip link set $i down && brctl delbr $i; done
+
+- hosts: mcp
+  gather_facts: no
+  tasks:
+
+    - name: Remove nova-networking bridges from control nodes
+      shell: for i in $( brctl show | grep 8000.000000000000 | awk '{ print $1 }' ); do ip link set $i down && brctl delbr $i; done
+

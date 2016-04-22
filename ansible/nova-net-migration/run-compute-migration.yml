@@ -1,0 +1,14 @@
+# vim:ft=ansible:
+
+---
+
+- hosts: mhv
+  tasks:
+
+    - name: Check for host's compute.conf
+      stat: path=/tmp/git/novanet2neutron/{{ ansible_nodename }}_compute.conf
+      register: novanet2neutron_conf
+
+    - name: Run migrate compute
+      shell: cd /tmp/git/novanet2neutron && ./migrate-compute.py -d neutron -c {{ ansible_nodename }}_compute.conf -f
+      when: novanet2neutron_conf.stat.exists

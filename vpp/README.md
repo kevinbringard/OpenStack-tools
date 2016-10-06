@@ -5,10 +5,10 @@ Standup a vagrant box suitable for running devstack with the VPP plugin on CentO
 ## Getting started
 
 * Stand up the Vagrant box and login
-  *```
-  vagrant up --provider=vmware_fusion
-  vagrant ssh
-  ```
+```
+vagrant up --provider=vmware_fusion
+vagrant ssh
+```
 
 * Run the install_vpp_rpms.bash script. This installs VPP and its python API from the VPP repos
 ```

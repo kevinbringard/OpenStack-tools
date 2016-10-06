@@ -4,43 +4,43 @@ Standup a vagrant box suitable for running devstack with the VPP plugin on CentO
 
 ## Getting started
 
-1. Stand up the Vagrant box and login
-```
-vagrant up --provider=vmware_fusion
-vagrant ssh
-```
+* Stand up the Vagrant box and login
+  *```
+  vagrant up --provider=vmware_fusion
+  vagrant ssh
+  ```
 
-2. Run the install_vpp_rpms.bash script. This installs VPP and its python API from the VPP repos
+* Run the install_vpp_rpms.bash script. This installs VPP and its python API from the VPP repos
 ```
 cd /vagrant
 ./install_vpp_rpms.bash
 ```
 
-3. Verify vpp is up and running properly (the install_vpp_rpms.bash script also dumps this info)
+* Verify vpp is up and running properly (the install_vpp_rpms.bash script also dumps this info)
 ```
 sudo vppctl show int
 ```
 
-4. Run setup_devstack.bash
+* Run setup_devstack.bash
 ```
 ./setup_devstack.bash
 ```
 
-5. Restart q-svc (neutron-server) by the normal devstack means. This is due to a bug in the ML2 driver, it may be unecessary later.
+*  Restart q-svc (neutron-server) by the normal devstack means. This is due to a bug in the ML2 driver, it may be unecessary later.
 
-6. Restart n-sch (nova scheduler) by the normal devstack means. This is to make sure the NUMATopologyFilter scheduling filter takes effect.
+* Restart n-sch (nova scheduler) by the normal devstack means. This is to make sure the NUMATopologyFilter scheduling filter takes effect.
 
-7. Restart n-cpu (nova-compute) by the normal devstack means. This is to ensure it's using the correct qemu binary and populating the nova.compute_nodes.numa_topology correctly
+* Restart n-cpu (nova-compute) by the normal devstack means. This is to ensure it's using the correct qemu binary and populating the nova.compute_nodes.numa_topology correctly
 
-8. Create a new neutron-network and subnet. This appears to be necessary due to a bug in the ML2 driver which doesn't corretly plumb in DHCP services for existing networks
+* Create a new neutron-network and subnet. This appears to be necessary due to a bug in the ML2 driver which doesn't corretly plumb in DHCP services for existing networks
 ```
 neutron net-create my-vpp-net
 neutron subnet-create my-vpp-net 10.254.254.0/24 --name my-vpp-subnet
 ```
 
-9. Spin up a VM on the new network
+* Spin up a VM on the new network
 ```
 nova boot --image cirros-0.3.4-x86_64-uec --flavor m1.tiny.hugepage --nic net-name=my-vpp-net vpp-test-1
 ```
 
-10. That's it!
+* That's it!

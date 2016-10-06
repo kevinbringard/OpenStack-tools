@@ -37,7 +37,7 @@ if [ VPP_SHA != "" ]; then
 fi
 
 # Fix the makefile to not promp
-sed -i.bak 's/$(CONFIRM)/-y/g' Makefile
+# sed -i.bak 's/$(CONFIRM)/-y/g' Makefile
 
 # Build VPP
 cd ${VPP_DIR}

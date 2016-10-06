@@ -6,29 +6,30 @@ to perform the basic install/config
 ## Getting started
 
 ### Stand up the Vagrant box and login
-vagrant up && vagrant ssh
+vagrant up --provider=vmware_fusion
+vagrant ssh
 
-### Copy the vagrant files to /home/vagrant
-cp /vagrant .
+### Run the install_vpp_rpms.bash script. This installs VPP and its python API from the VPP repos
+cd /vagrant
+./install_vpp_rpms.bash
 
-### Make sure you're running the latest kernel and libs
-sudo yum -y update
-
-### Setup hugepages and NUMA isolation
-sudo sed -i 's/rhgb quiet/rhgb quiet default_hugepagesz=2M hugepagesz=2M hugepages=2048 iommu=pt intel_iommu=on isolcpus=0-3/' /etc/default/grub
-sudo grub2-mkconfig -o /boot/grub2/grub.cfg
-
-### Reboot
-sudo reboot
-
-### Run the setup_vpp.bash script. It will take some time
-./setup_vpp.bash
-
-### Verify vpp is up and running properly (the setup_vpp script also dumps this info)
+### Verify vpp is up and running properly (the install_vpp_rpms.bash script also dumps this info)
 sudo vppctl show int
 
 ### Run setup_devstack.bash
 ./setup_devstack.bash
 
+### Restart q-svc (neutron-server) by the normal devstack means. This is due to a bug in the ML2 driver, it may be unecessary later.
+
+### Restart n-sch (nova scheduler) by the normal devstack means. This is to make sure the NUMATopologyFilter scheduling filter takes effect.
+
+### Restart n-cpu (nova-compute) by the normal devstack means. This is to ensure it's using the correct qemu binary and populating the nova.compute_nodes.numa_topology correctly
+
+### Create a new neutron-network and subnet. This appears to be necessary due to a bug in the ML2 driver which doesn't corretly plumb in DHCP services for existing networks
+neutron net-create my-vpp-net
+neutron subnet-create my-vpp-net 10.254.254.0/24 --name my-vpp-subnet
+
+### Spin up a VM on the new network
+nova boot --image cirros-0.3.4-x86_64-uec --flavor m1.tiny.hugepage --nic net-name=my-vpp-net vpp-test-1
+
 ## That's it!
-When this finishes you should have a running devstack with the VPP plugin. It's worth noting at this time we're still working though some issues with Virtualbox and NUMA so it's likely you'll run into issues actually launching VMs, but neautron port-create commands *should* work

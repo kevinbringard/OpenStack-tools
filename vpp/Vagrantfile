@@ -5,6 +5,20 @@
 # configures the configuration version (we support older styles for
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
+
+$setup_system = <<SCRIPT
+
+sudo yum -y install centos-release-qemu-ev
+sudo yum -y install yum install qemu-kvm-ev
+sudo yum -y update
+sudo yum -y remove qemu-system-x86
+sudo echo "vm.nr_hugepages=2048" >> /etc/sysctl.conf
+sudo sed -i 's/rhgb quiet/rhgb quiet default_hugepagesz=2M hugepagesz=2M hugepages=2048 iommu=pt intel_iommu=on isolcpus=0-2/' /etc/default/grub
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+sudo reboot
+
+SCRIPT
+
 Vagrant.configure(2) do |config|
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
@@ -28,8 +42,8 @@ Vagrant.configure(2) do |config|
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
-  config.vm.network "private_network", ip: "10.254.254.10", auto_config: false
-  config.vm.network "private_network", ip: "10.254.254.11", auto_config: false
+  config.vm.network "private_network", ip: "192.168.100.100", auto_config: false
+  config.vm.network "private_network", ip: "192.168.100.101", auto_config: false
 
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
@@ -57,6 +71,16 @@ Vagrant.configure(2) do |config|
     # Customize the number of CPUs
     vb.cpus = 4
   end
+
+  config.vm.provider "vmware_fusion" do |v|
+    v.vmx["memsize"] = "12288"
+    v.vmx["numvcpus"] = "4"
+    v.vmx["ethernet1.virtualDev"] = "vmxnet3"
+    v.vmx["ethernet2.virtualDev"] = "vmxnet3"
+    v.vmx["ethernet3.virtualDev"] = "vmxnet3"
+    v.vmx["vhv.enable"] = "TRUE"
+    v.gui = "true"
+  end
   #
   # View the documentation for the provider you are using for more
   # information on available options.
@@ -75,4 +99,7 @@ Vagrant.configure(2) do |config|
   #   sudo apt-get update
   #   sudo apt-get install -y apache2
   # SHELL
+
+  config.vm.provision "shell", inline: $setup_system
+
 end

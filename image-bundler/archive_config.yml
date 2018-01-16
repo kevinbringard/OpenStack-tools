@@ -1,0 +1,80 @@
+# Configure the image downloader
+#
+# All values are *required*
+#
+# Images section:
+#
+# images:
+#   cirros:
+#   url: https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+#   localname: cirros-0.4.0-x86_64-disk
+#   extension: raw
+#   path: /tmp
+
+#
+# images - top level key to denote images section
+# "cirros" - top level name to denote each image's attributes.
+#   In this example "cirros" tells us this is the "cirros" image
+# localname - what name should the image be downloaded as.
+#   It's worth noting that extension will be appended to this name, as will
+#   today's date. So for example 'cirros-0.4.0-x86_64-disk' with extension: raw
+#   will end up as 'cirros-0.4.0-x86_64-disk-2018-01-16.raw'.
+# extension - The extension to add to the file after it has been downloaded.
+#   See 'localname' documentation above for additional info about file naming.
+# path - Path where images are stored. This should not be a temporary path as it
+#   will serve as the image cache from which we determine if the remote image is
+#   newer.
+#
+# Archives secion:
+#
+# archives:
+#   image:
+#     name: image_archive.tar.gz
+#     path: /tmp
+#     compress: true
+#
+# archives - top level key to denote archives section
+# "image" - top level name to denote each archives attributes
+#   In this example "image" tells us this is the image archive
+# name - name of the archive to create including extension
+# path - location the archive should end up
+# compress - should we gzip the tarball or not
+
+
+---
+images:
+  cirros:
+    url: https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+    localname: cirros-0.4.0-x86_64-disk
+    extension: raw
+    path: /tmp
+
+  centos7:
+    url: http://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
+    localname: CentOS-7-x86_64-GenericCloud
+    extension: raw
+    path: /tmp
+
+  centos6:
+    url: http://cloud.centos.org/centos/6/images/CentOS-6-x86_64-GenericCloud.qcow2
+    localname: CentOS-6-x86_64-GenericCloud
+    extension: raw
+    path: /tmp
+
+  ubuntu1404:
+    url: https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img
+    localname: ubuntu_1404_server_cloudimg_amd64
+    extension: raw
+    path: /tmp
+
+  ubuntu1606:
+    url: https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
+    localname: ubuntu_1604_server_cloudimg_amd64
+    extension: raw
+    path: /tmp
+
+archives:
+  image:
+    name: image_archive.tar.gz
+    path: /tmp
+    compress: true
